@@ -16,6 +16,7 @@
         <CommandBinding Command="ApplicationCommands.SaveAs" CanExecute="CommandBinding_SaveAs_CanExecute" Executed="CommandBinding_SaveAs_Executed"/>
     </Window.CommandBindings>
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <ControlTemplate TargetType="ContentControl" x:Key="WindowExtend">
             <StackPanel Orientation="Horizontal">
                 <Button BorderBrush="Transparent" Background="Transparent"
@@ -646,7 +647,22 @@
                         <Separator/>
                         <ComboBoxItem Content="Chromium" Tag="{x:Static m:CookieType.Chromium}"/>
                         <ComboBoxItem Content="Chrome Beta" Tag="{x:Static m:CookieType.Chrome_Beta}"/>
+                        <Separator/>
+                        <ComboBoxItem Content="{Binding Source={x:Static app:App.Lang}, Path=Main.File}" Tag="{x:Static m:CookieType.File}"/>
                     </ComboBox>
+                    
+                    <!-- New UI: Cookie File Path -->
+                    <Grid Visibility="{Binding Enable.CookiePath, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="4,0,0,0" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <controls:TextEditor Text="{Binding CookiePath}" IsReadOnly="True" Margin="0,0,2,0" />
+                        <Button Grid.Column="1" Padding="2,0" Click="Button_CookieFile">
+                            <controls:Icons Size="12" Kind="FolderMoveOutline"/>
+                        </Button>
+                    </Grid>
+
                 </StackPanel>
                 <!--UseAria2-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_ -->
                 <TextBlock Grid.Row="3" Text="{Binding Source={x:Static app:App.Lang}, Path=Main.Aria2}" VerticalAlignment="Center" HorizontalAlignment="Right"/>

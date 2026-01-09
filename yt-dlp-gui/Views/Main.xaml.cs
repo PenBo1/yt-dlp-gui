@@ -243,30 +243,58 @@ namespace yt_dlp_gui.Views {
                     Data.PathFFMPEG = DLP.Path_FFMPEG = FFMPEG.Path_FFMPEG = dep_ffmpeg;
                 }
             }
+            Debug.WriteLine($"[Main] ScanDepends Result:", "Main");
+            Debug.WriteLine($"   DLP: {DLP.Path_DLP}", "Main");
+            Debug.WriteLine($"   FFMPEG: {FFMPEG.Path_FFMPEG}", "Main");
+            Debug.WriteLine($"   Aria2: {DLP.Path_Aria2}", "Main");
+            Debug.WriteLine($"   JS: {DLP.Path_JS}", "Main");
         }
+        // PenBo: 对返回结果进行“非空判断”
         public async void Inits() {
-            //check update
-            var needcheck = false;
-            var currentDate = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd"); //"";
+            try {
+                // 1. 检查更新逻辑
+                var needcheck = false;
+                var currentDate = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
 
-            if (!string.IsNullOrWhiteSpace(Data.LastVersion)) needcheck = true; //not yaml
-            if (currentDate != Data.LastCheckUpdate) needcheck = true; //cross date
+                if (!string.IsNullOrWhiteSpace(Data.LastVersion)) needcheck = true;
+                if (currentDate != Data.LastCheckUpdate) needcheck = true;
 
-            if (needcheck) {
-                var releaseData = await Web.GetLastTag();
-                var last = releaseData.FirstOrDefault();
-                if (last != null) {
-                    Data.ReleaseData = releaseData;
-                    Data.LastVersion = last.tag_name;
-                    Data.LastCheckUpdate = currentDate;
+                if (needcheck) {
+                    var releaseData = await Web.GetLastTag();
+
+                    // 关键修复：增加空引用判断，防止 releaseData 为 null 时调用 FirstOrDefault 崩溃
+                    if (releaseData != null) {
+                        var last = releaseData.FirstOrDefault();
+                        if (last != null) {
+                            Data.ReleaseData = releaseData;
+                            Data.LastVersion = last.tag_name;
+                            Data.LastCheckUpdate = currentDate;
+                        }
+                    }
+                }
+
+                // 2. 版本比对逻辑
+                if (!string.IsNullOrEmpty(Data.LastVersion)) {
+                    if (string.Compare(App.CurrentVersion, Data.LastVersion) < 0) {
+                        Data.NewVersion = true;
+                    }
                 }
             }
-            if (string.Compare(App.CurrentVersion, Data.LastVersion) < 0) {
-                Data.NewVersion = true;
+            catch (Exception ex) {
+                // 捕获所有可能的网络或逻辑异常，确保程序不会因为初始化失败而闪退
+                Console.WriteLine($"初始化更新失败: {ex.Message}");
             }
-        }
+        } 
         private void Button_Analyze(object sender, RoutedEventArgs e) {
+            
             Analyze_Start();
+        }
+        private void Button_CookieFile(object sender, RoutedEventArgs e) {
+            Microsoft.Win32.OpenFileDialog ofd = new Microsoft.Win32.OpenFileDialog();
+            ofd.Filter = "Text File|*.txt|All File|*.*";
+            if (ofd.ShowDialog() == true) {
+                Data.CookiePath = ofd.FileName;
+            }
         }
         private void Analyze_Start() {
             Data.IsAnalyze = true;
@@ -279,21 +307,28 @@ namespace yt_dlp_gui.Views {
             Data.NeedCookie = Data.UseCookie == UseCookie.Always;
 
             Task.Run(() => {
-                GetInfo();
-                Data.IsAnalyze = false;
+                try {
+                    Debug.WriteLine("[Main] Starting Analysis Task...", "Main");
+                    GetInfo();
+                    Data.IsAnalyze = false;
 
-                if (Data.AutoDownloadAnalysed) {
-                    //Download_Start();
-                    if (Data.selectedVideo != null && Data.selectedAudio != null) {
-                        Download_Start_Native();
+                    if (Data.AutoDownloadAnalysed) {
+                        //Download_Start();
+                        if (Data.selectedVideo != null && Data.selectedAudio != null) {
+                            Download_Start_Native();
+                        }
                     }
+                } catch (Exception ex) {
+                    Debug.WriteLine($"[Main] Analysis Failed: {ex}", "Main");
+                    System.Windows.MessageBox.Show($"Analysis Error: {ex.Message}");
+                    Data.IsAnalyze = false;
                 }
             });
         }
         private void GetInfo() {
             //Analyze
             var dlp = new DLP(Data.Url);
-            if (Data.NeedCookie) dlp.Cookie(Data.CookieType);
+            dlp.Cookie(Data.CookieType, Data.NeedCookie, Data.CookiePath);
             dlp.Proxy(Data.ProxyUrl, Data.ProxyEnabled);
             dlp.GetInfo();
             if (!string.IsNullOrWhiteSpace(Data.selectedConfig.file)) {
@@ -478,7 +513,7 @@ namespace yt_dlp_gui.Views {
                         .Temp(GetTempPath)
                         .LoadConfig(Data.selectedConfig.file)
                         .MTime(Data.ModifiedType)
-                        .Cookie(Data.CookieType, Data.NeedCookie)
+                        .Cookie(Data.CookieType, Data.NeedCookie, Data.CookiePath)
                         .Proxy(Data.ProxyUrl, Data.ProxyEnabled)
                         .UseAria2(Data.UseAria2)
                         .LimitRate(Data.LimitRate)

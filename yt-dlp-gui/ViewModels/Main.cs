@@ -107,6 +107,10 @@ namespace yt_dlp_gui.Views {
                     case nameof(TargetFile):
                         TargetDisplay = Util.ReplaceSpecialPath(TargetFile);
                         break;
+                    case nameof(UseCookie):
+                    case nameof(CookieType):
+                        CheckEnable();
+                        break;
                     case nameof(ImageWidth):
                         ImageHeight = ImageWidth * 0.5625d;
                         break;
@@ -219,6 +223,7 @@ namespace yt_dlp_gui.Views {
             public string ExecText { get; set; } = string.Empty;
             public UseCookie UseCookie { get; set; } = UseCookie.WhenNeeded;
             public CookieType CookieType { get; set; } = CookieType.Chrome;
+            public string CookiePath { get; set; } = string.Empty;
             public bool UseNotifications { get; set; } = true;
             public bool UseAria2 { get; set; } = true;
             public bool NeedCookie { get; set; } = false;
@@ -266,12 +271,15 @@ namespace yt_dlp_gui.Views {
                 Enable.SaveThumbnail = true;
                 Enable.SaveVideo = true;
                 Enable.SaveAudio = true;
-                Enable.SaveSubtitle = true;
-                Enable.UseNotifications = true;
-                Enable.UseAria2 = true;
-
-                if (string.IsNullOrWhiteSpace(Url)) Enable.Analyze = false;
-                if (IsAnalyze) {
+                if (UseCookie == UseCookie.Always || UseCookie == UseCookie.WhenNeeded || UseCookie == UseCookie.Ask) {
+                    Enable.CookieType = true;
+                    //Enable.CookiePath = CookieType == CookieType.File;
+                    Enable.CookiePath = CookieType == CookieType.File; // 简化逻辑
+                } else {
+                    Enable.CookieType = false;
+                    Enable.CookiePath = false;
+                }
+                if (IsAnalyze || IsDownload || IsAbouted || IsMonitor) {
                     Enable.Url = false;
                     Enable.Analyze = false;
                     Enable.SelectChapters = false;
@@ -282,6 +290,7 @@ namespace yt_dlp_gui.Views {
                     Enable.SelectSubtitle = false;
                     Enable.UseCookie = false;
                     Enable.CookieType = false;
+                    Enable.CookiePath = false;
                     Enable.SaveThumbnail = false;
                     Enable.SaveVideo = false;
                     Enable.SaveAudio = false;
@@ -357,6 +366,7 @@ namespace yt_dlp_gui.Views {
             public bool SelectSubtitle { get; set; } = true;
             public bool UseCookie { get; set; } = true;
             public bool CookieType { get; set; } = true;
+            public bool CookiePath { get; set; } = true;
             public bool SaveThumbnail { get; set; } = true;
             public bool SaveVideo { get; set; } = true;
             public bool SaveAudio { get; set; } = true;
@@ -395,6 +405,7 @@ namespace yt_dlp_gui.Views {
             [YamlMember(Order = 1202)] public string ProxyUrl { get; set; } = string.Empty;
             [YamlMember(Order = 1203)] public UseCookie UseCookie { get; set; } = UseCookie.WhenNeeded;
             [YamlMember(Order = 1204)] public CookieType CookieType { get; set; } = CookieType.Chrome;
+            [YamlMember(Order = 1205)] public string CookiePath { get; set; } = string.Empty;
 
             [Description("Advance")]
             [YamlMember(Order = 1301)] public string ConfigurationFile { get; set; } = string.Empty;

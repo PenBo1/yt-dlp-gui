@@ -17,6 +17,7 @@ namespace yt_dlp_gui.Wrappers {
         static public string Path_DLP { get; set; } = string.Empty;
         static public string Path_Aria2 { get; set; } = string.Empty;
         static public string Path_FFMPEG { get; set; } = string.Empty;
+        static public string Path_JS { get; set; } = string.Empty;
         public List<string> Files { get; set; } = new List<string>();
         public Dictionary<string, string> Options { get; set; } = new Dictionary<string, string>();
         public string Url { get; set; } = string.Empty;
@@ -32,6 +33,27 @@ namespace yt_dlp_gui.Wrappers {
             Options["--force-overwrites"] = "";
             Options["--ignore-config"] = "";
             Options["--ffmpeg-location"] = Path_FFMPEG.QP();
+
+            // --- 新增逻辑 ---
+            // 只要静态属性 Path_JS 不为空，每个实例创建时都会自动加上该参数
+            if (!string.IsNullOrWhiteSpace(Path_JS)) {
+                string type = "deno"; // 默认策略：默认为 deno
+                
+                try {
+                    var name = Path.GetFileNameWithoutExtension(Path_JS).ToLower();
+                    if (name.Contains("node")) type = "node";
+                    else if (name.Contains("bun")) type = "bun";
+                    else if (name.Contains("qjs") || name.Contains("quickjs")) type = "quickjs";
+                    // 显式检查 deno，虽然是默认值，为了逻辑清晰
+                    else if (name.Contains("deno")) type = "deno";
+                } catch (Exception ex) {
+                    Debug.WriteLine($"[DLP] Error parsing Path_JS filename: {ex.Message}", "DLP");
+                }
+
+                Debug.WriteLine($"[DLP] Auto-detected JS Runtime: {type} from {Path_JS}", "DLP");
+                this.JSRuntime(type, Path_JS); 
+            }
+
             if (Type == DLPType.yd_dlp) {
                 Options["--progress-template"] = "\""
                     + "[yt-dlp]," //0
@@ -45,7 +67,9 @@ namespace yt_dlp_gui.Wrappers {
                 Options["--windows-filenames"] = "";
             }
         }
+
         public DLP LoadConfig(string path) {
+            Debug.WriteLine($"[DLP] LoadConfig: {path}", "DLP");
             if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) {
                 Options.Remove("--ignore-config");
                 Options["--config-location"] = path.QP();
@@ -53,21 +77,25 @@ namespace yt_dlp_gui.Wrappers {
             return this;
         }
         public DLP Output(string targetpath) {
+            Debug.WriteLine($"[DLP] Output: {targetpath}", "DLP");
             Options["--output"] = targetpath.QP();
             return this;
         }
         public DLP MTime(ModifiedType type = ModifiedType.Modified) {
+            Debug.WriteLine($"[DLP] MTime: {type}", "DLP");
             if (type == ModifiedType.Created) {
                 Options["--no-mtime"] = "";
             }
             return this;
         }
         public DLP Temp(string path) {
+            Debug.WriteLine($"[DLP] Temp: {path}", "DLP");
             Options["--cache-dir"] = path.QP();
             Options["[temp]"] = path.QP("temp");
             return this;
         }
         public DLP Proxy(string proxy_url, bool enable = true) {
+            Debug.WriteLine($"[DLP] Proxy: {proxy_url} (Enabled: {enable})", "DLP");
             if (enable) {
                 Options["--proxy"] = proxy_url.QS();
             }
@@ -142,6 +170,7 @@ namespace yt_dlp_gui.Wrappers {
             return this;
         }
         public DLP UseAria2(bool enable = true) {
+            Debug.WriteLine($"[DLP] UseAria2: {enable} (Path: {Path_Aria2})", "DLP");
             if (enable) {
                 if (File.Exists(Path_Aria2)) {
                     Options["--external-downloader"] = Path_Aria2.QP();
@@ -155,12 +184,14 @@ namespace yt_dlp_gui.Wrappers {
             return this;
         }
         public DLP LimitRate(string value) {
+            Debug.WriteLine($"[DLP] LimitRate: {value}", "DLP");
             if (!string.IsNullOrWhiteSpace(value)) {
                 Options["--limit-rate"] = value;
             }
             return this;
         }
-        public DLP Cookie(CookieType type, bool enable = true) {
+        public DLP Cookie(CookieType type, bool enable = true, string path = "") {
+            Debug.WriteLine($"[DLP] Cookie: {type}, Enable: {enable}, Path: {path}", "DLP");
             if (enable) {
                 switch (type) {
                     case CookieType.Chrome:
@@ -182,6 +213,13 @@ namespace yt_dlp_gui.Wrappers {
                         var AppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                         var CookiePath = Path.Combine(AppData, "Google", "Chrome Beta");
                         Options["--cookies-from-browser"] = $"chrome:{CookiePath}";
+                        break;
+                    case CookieType.File:
+                        if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) {
+                            Options["--cookies"] = path.QP();
+                        } else {
+                            Debug.WriteLine("[DLP] Cookie File path invalid.", "DLP");
+                        }
                         break;
                 }
             }
@@ -254,9 +292,21 @@ namespace yt_dlp_gui.Wrappers {
                 Options["--convert-subs"] = exts;
             }
             var subpath = Path.ChangeExtension(targetpath, null);
-            Options["--skip-download"] = "";
             Options["[subtitle]"] = subpath.QP("subtitle");
             return this;
+        }
+        public DLP JSRuntime(string type, string path) {
+             Debug.WriteLine($"[DLP] Set JS Runtime: {type} -> {path}", "DLP");
+             // 构造 "type:path" 格式，并确保路径带引号（如果包含空格）
+             // 使用 QP() 给路径加引号? 需小心参数整体的引号
+             // 如果 Args 生成逻辑是 Options key + " " + value
+             // 那么 Value 应该是 "type:path" 
+             // 考虑到 DLP.cs 中 QP() 是加两头引号，我们可能需要手动处理
+             
+             // 假设 path 已经是绝对路径
+             var cleanPath = path.Replace(Path.DirectorySeparatorChar, '/');
+             Options["--js-runtimes"] = $"{type}:{cleanPath}".QS(); 
+             return this;
         }
         private static Regex ErrSign = new Regex(@"^(?=.*?ERROR)(?=.*?sign)(?=.*?confirm)", RegexOptions.IgnoreCase);
         private static Regex ErrUnsupported = new Regex(@"^(?=.*?ERROR)(?=.*?Unsupported)", RegexOptions.IgnoreCase);

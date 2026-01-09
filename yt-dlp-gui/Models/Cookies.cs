@@ -12,6 +12,7 @@
         Opera, 
         Vivaldi,
         Chromium, 
-        Chrome_Beta
+        Chrome_Beta,
+        File
     }
 }

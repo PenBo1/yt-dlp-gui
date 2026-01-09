@@ -154,6 +154,7 @@ namespace yt_dlp_gui.Models {
         [YamlMember(Order = 1104)] public string CookieAlways { get; set; } = "Always";
         [YamlMember(Order = 1105)] public string CookieAsk { get; set; } = "Ask";
         [YamlMember(Order = 1106)] public string CookieUse { get; set; } = "Use";
+        [YamlMember(Order = 1107)] public string File { get; set; } = "Local File";
 
         [Description("Advance Tab - Aria2")]
         [YamlMember(Order = 1111)] public string Aria2 { get; set; } = "Aria2";
